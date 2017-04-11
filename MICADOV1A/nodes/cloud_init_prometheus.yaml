@@ -92,14 +92,14 @@ write_files:
     ALERT app_overloaded
       IF app_cpu_utilization > 80
       FOR 3m
-      LABELS {alert="overloaded", cluster="app_cluster", node="da", infra_id="{{infra_id}}"}
+      LABELS {alert="overloaded", cluster="app_cluster", node="app", infra_id="{{infra_id}}"}
       ANNOTATIONS {
-      summary = "DA cluster overloaded",
-      description = "DA cluster average CPU utilization is overloaded"}
+      summary = "Application cluster overloaded",
+      description = "Application cluster average CPU utilization is overloaded"}
     ALERT app_underloaded
       IF app_cpu_utilization < 20
       FOR 3m
-      LABELS {alert="underloaded", cluster="app_cluster", node="da", infra_id="{{infra_id}}"}
+      LABELS {alert="underloaded", cluster="app_cluster", node="app", infra_id="{{infra_id}}"}
       ANNOTATIONS {
       summary = "Application cluster underloaded",
       description = "Application cluster average CPU utilization is underloaded"}
