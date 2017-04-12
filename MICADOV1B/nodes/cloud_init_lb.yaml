@@ -95,10 +95,7 @@ runcmd:
   - apt-get update
   - apt-get install -y docker-ce
   - systemctl enable docker
-# Connect to Swarm
-  - wget --retry-connrefused -qO /tmp/swarm_join {{getip(variables.consul_host)}}:2375/v1.26/swarm
-  - export TOKEN=$(grep -Eo 'SWMTKN-[[:alnum:]]*-[[:alnum:]]*-[[:alnum:]]*' /tmp/swarm_join | head -1)
-  - docker swarm join --token $TOKEN {{getip(variables.consul_host)}}:2377
+
 
 # Infra services start
   - sudo docker run -d -p 9100:9100 prom/node-exporter
