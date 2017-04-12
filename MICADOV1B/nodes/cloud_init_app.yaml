@@ -89,4 +89,4 @@ runcmd:
 
 # Start application service
 # Log into the Prometheus node where Swarm is running and start your application service
- docker service create --name avenue --mode global --publish 80:8080 -e IP='sqldb ip' -p 8080:8080 rabotond/avenue
+# docker service create --name avenue --mode global --publish 80:8080 -e IP='sqldb ip' -p 8080:8080 rabotond/avenue
