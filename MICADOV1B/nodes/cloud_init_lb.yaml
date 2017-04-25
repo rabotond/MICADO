@@ -95,6 +95,11 @@ runcmd:
   - apt-get update
   - apt-get install -y docker-ce
   - systemctl enable docker
+  - systemctl enable docker-tcp.socket
+  - systemctl enable docker.socket
+  - systemctl stop docker
+  - systemctl start docker-tcp.socket
+  - systemctl start docker
 
 
 # Infra services start

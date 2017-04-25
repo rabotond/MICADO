@@ -77,6 +77,11 @@ runcmd:
   - apt-get update
   - apt-get install -y docker-ce
   - systemctl enable docker
+  - systemctl enable docker-tcp.socket
+  - systemctl enable docker.socket
+  - systemctl stop docker
+  - systemctl start docker-tcp.socket
+  - systemctl start docker
   - wget --retry-connrefused -qO /tmp/swarm_join {{getip(variables.consul_host)}}:2375/v1.26/swarm
   - export TOKEN=$(grep -Eo 'SWMTKN-[[:alnum:]]*-[[:alnum:]]*-[[:alnum:]]*' /tmp/swarm_join | head -1)
   - docker swarm join --token $TOKEN {{getip(variables.consul_host)}}:2377
