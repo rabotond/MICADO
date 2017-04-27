@@ -57,7 +57,7 @@ write_files:
       consul_sd_configs:
       - server: '172.31.0.5:8500'
         datacenter: application
-        services: ['lb_cluster', 'app_cluster']
+        services: ['lb_cluster', 'app_cluster', 'app_docker_cluster']
       relabel_configs:
       - source_labels: ['__meta_consul_service']
         regex:         '(.*)'
@@ -87,32 +87,50 @@ write_files:
     lb_hdd_utilization = sum(node_filesystem_free{job="lb_cluster",mountpoint="/", device="rootfs"}) / sum(node_filesystem_size{job="lb_cluster",mountpoint="/", device="rootfs"}) *100
     app_hdd_utilization = sum(node_filesystem_free{job="app_cluster",mountpoint="/", device="rootfs"}) / sum(node_filesystem_size{job="app_cluster",mountpoint="/", device="rootfs"}) *100
 
+    DA_CPU = rate(container_cpu_user_seconds_total{container_label_com_docker_swarm_service_name="DA"}[1m])
+
+    ALERT DA_app_underloaded
+     IF rate(container_cpu_user_seconds_total{container_label_com_docker_swarm_service_name="DA"}[1m])*10000 < 20
+      FOR 1m
+      LABELS {alert="overloaded", application="da", type="docker"}
+      ANNOTATIONS {
+      summary = "DA cluster overloaded",
+      description = "DA containers"}
+    ALERT DA_app_underloaded
+      IF rate(container_cpu_user_seconds_total{container_label_com_docker_swarm_service_name="DA"}[1m])*10000 > 80
+      FOR 1m
+      LABELS {alert="underloaded", application="da", type="docker"}
+      ANNOTATIONS {
+      summary = "LB cluster underloaded",
+      description = "LB cluster average CPU utilization is underloaded"}
+
+
 
     ALERT lb_overloaded
       IF lb_cpu_utilization > 60
       FOR 1m
-      LABELS {alert="overloaded", cluster="lb_cluster", node="lb", infra_id="{{infra_id}}"}
+      LABELS {alert="overloaded", cluster="lb_cluster", node="lb", infra_id="{{infra_id}}", type="VM"}
       ANNOTATIONS {
       summary = "LB cluster overloaded",
       description = "LB cluster average CPU utilization is overloaded"}
     ALERT lb_underloaded
       IF lb_cpu_utilization < 20
       FOR 2m
-      LABELS {alert="underloaded", cluster="lb_cluster", node="lb", infra_id="{{infra_id}}"}
+      LABELS {alert="underloaded", cluster="lb_cluster", node="lb", infra_id="{{infra_id}}", type="VM"}
       ANNOTATIONS {
       summary = "LB cluster underloaded",
       description = "LB cluster average CPU utilization is underloaded"}
     ALERT app_overloaded
       IF app_cpu_utilization > 60
       FOR 1m
-      LABELS {alert="overloaded", cluster="app_cluster", node="app", infra_id="{{infra_id}}"}
+      LABELS {alert="overloaded", cluster="app_cluster", node="app", infra_id="{{infra_id}}", type="VM"}
       ANNOTATIONS {
       summary = "Application cluster overloaded",
       description = "Application cluster average CPU utilization is overloaded"}
     ALERT app_underloaded
       IF app_cpu_utilization < 20
       FOR 2m
-      LABELS {alert="underloaded", cluster="app_cluster", node="app", infra_id="{{infra_id}}"}
+      LABELS {alert="underloaded", cluster="app_cluster", node="app", infra_id="{{infra_id}}", type="VM"}
       ANNOTATIONS {
       summary = "Application cluster underloaded",
       description = "Application cluster average CPU utilization is underloaded"}
@@ -132,8 +150,8 @@ write_files:
       receiver: 'default'
       group_wait: 10s
       group_interval: 20s
-      repeat_interval: 5m
-      group_by: [cluster, alertname]
+      repeat_interval: 2m
+      group_by: [alertname]
     
     receivers:
     - name: 'default'
@@ -149,12 +167,20 @@ write_files:
       exit 0
     fi
     
-    over_loaded() {
+    VM_over_loaded() {
       curl -X POST http://{{variables.occopus_restservice_ip}}:{{variables.occopus_restservice_port}}/infrastructures/$1/scaleup/$2
     }
     
-    under_loaded() {
+    VM_under_loaded() {
       curl -X POST http://{{variables.occopus_restservice_ip}}:{{variables.occopus_restservice_port}}/infrastructures/$1/scaledown/$2
+    }
+
+    service_over_loaded() {
+      curl -X POST http://127.0.0.1:2376/services/$1/update -replicas=3
+    }
+    
+    service_under_loaded() {
+      curl -X POST http://127.0.0.1:2376/services/$1/update -replicas=1
     }
     
     main() {
@@ -162,12 +188,21 @@ write_files:
         alert="AMX_ALERT_${i}_LABEL_alert"
         infra="AMX_ALERT_${i}_LABEL_infra_id"
         node="AMX_ALERT_${i}_LABEL_node"
+        type="AMX_ALERT_${i}_LABEL_type"
+        application="AMX_ALERT_${i}_LABEL_application"
     
-        if [ "${!alert}" = "overloaded" ]
-        then
-            over_loaded "${!infra}" "${!node}"
+        if [ "${!alert}" = "overloaded" ] then
+              if [ "${!type}" = "docker"] then
+                service_over_loaded "${!application}"
+              else
+                VM_over_loaded "${!infra}" "${!node}"
+              done
         else
-            under_loaded "${!infra}" "${!node}"
+              if [ "${!type}" = "docker"] then
+                service_under_loaded "${!application}"
+              else
+                VM_under_loaded "${!infra}" "${!node}"
+              done
         fi
       done
       wait
